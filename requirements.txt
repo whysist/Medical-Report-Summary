@@ -1,0 +1,9 @@
+torch>=2.0
+transformers>=4.40
+datasets>=2.19
+accelerate>=0.30
+sentencepiece>=0.1.99
+
+# Offline summarisation (no model download needed)
+sumy>=0.11.0
+nltk>=3.8

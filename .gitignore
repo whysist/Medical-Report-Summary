@@ -1,0 +1,9 @@
+venv/
+results/
+NotRequired/
+pruned_model/
+model/
+temp.p
+quantized_model.pt
+quantized_model.pth
+__pycache__/

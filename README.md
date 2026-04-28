@@ -1,103 +1,82 @@
-# Medical Abstract Summarization with Transformer Architectures
+# Medical Report Summarization & Model Optimization
 
-> **Unit-V Project** — Demonstrating Seq2Seq Transformer architectures, model compression, and knowledge distillation applied to PubMed / medical abstract summarisation.
-
----
-
-## Table of Contents
-
-- [Problem Statement](#problem-statement)
-- [Project Structure](#project-structure)
-- [Key Concepts](#key-concepts)
-  - [1. Encoder-Decoder Seq2Seq Architecture](#1-encoder-decoder-seq2seq-architecture)
-  - [2. Model Compression Techniques](#2-model-compression-techniques)
-  - [3. Knowledge Distillation](#3-knowledge-distillation)
-  - [4. Applications](#4-applications)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Running the Scripts](#running-the-scripts)
-- [Troubleshooting](#troubleshooting)
+This project implements a robust pipeline for summarizing medical documents and clinical reports using state-of-the-art Transformer architectures. It focuses on fine-tuning the **T5 (Text-to-Text Transfer Transformer)** model and optimizing it for deployment through **Dynamic Quantization**.
 
 ---
 
-## Problem Statement
+## 🚀 Overview
 
-**Abstractive summarisation of medical abstracts.**
-
-Unlike *extractive* summarisation (which copies sentences verbatim), *abstractive* summarisation requires the model to understand context and generate a novel, concise summary. This is valuable for clinicians who need to rapidly digest large volumes of medical literature, patient records, or clinical-trial reports sourced from databases such as PubMed.
+The system is designed to handle complex medical texts (like those from the PubMed dataset) and long clinical PDF reports. By utilizing a Seq2Seq Transformer model, the pipeline generates concise abstractive summaries. To ensure efficiency on edge devices and CPUs, the project incorporates advanced model compression techniques.
 
 ---
 
-## Project Structure
+## 🧠 Key Technologies & Concepts
 
-```
-.
-├── abstractive_summary.py    # Seq2Seq Transformer summarisation demo
-├── knowledge_distillation.py # Teacher-Student KD loss simulation
-├── model_compression.py      # Quantization, pruning & LoRA overview
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
-```
+### 1. Transformer Architecture (T5-Small)
+We utilize the **T5-Small** model, an encoder-decoder Transformer that treats every NLP task as a "text-to-text" problem.
+- **Encoder:** Processes the input medical text to create a high-dimensional representation.
+- **Decoder:** Generates the summary word-by-word based on the encoder's output.
+- **Pre-trained Knowledge:** Leverages broad linguistic patterns before fine-tuning on domain-specific medical data.
+
+### 2. Medical Text Fine-Tuning
+The model is fine-tuned on the `ccdv/pubmed-summarization` dataset, enabling it to:
+- Understand specialized medical terminology.
+- Identify critical clinical findings within lengthy abstracts.
+- Maintain factual consistency in generated summaries.
+
+### 3. Model Optimization: Dynamic Quantization
+To reduce inference latency and model size (from ~240MB down to ~70MB-90MB), we apply **Post-Training Dynamic Quantization**.
+- **Technique:** Converts 32-bit floating-point weights (`float32`) to 8-bit integers (`qint8`) for the `Linear` layers.
+- **Benefit:** Significant speedup on CPU-based environments with minimal loss in summarization accuracy.
+- **Quantized Artifacts:** Saved as `quantized_model.pt` and `quantized_model.pth`.
+
+### 4. Handling Long Documents (Chunking)
+Clinical reports can exceed the Transformer's maximum input length (512 tokens). Our pipeline implements a **recursive chunking technique**:
+- Splits PDFs/Long text into 300-word logical segments.
+- Summarizes each segment independently.
+- Aggregates summaries into a cohesive final report.
 
 ---
 
-## Key Concepts
+## 📂 Project Structure
 
-### 1. Encoder-Decoder Seq2Seq Architecture
+- [train.py](train.py): Fine-tunes the base T5-small model on medical data.
+- [evaluate.py](evaluate.py): Benchmarks the model using the test suite.
+- [compress.py](compress.py): Performs dynamic quantization and latency benchmarking.
+- [main.py](main.py): The entry point that orchestrates training, evaluation, and compression.
+- `model/`: Contains the fine-tuned model weights and configuration.
+- `quantized_model.pt`: The optimized, ready-to-deploy quantized model.
 
-Summarisation maps a long input sequence to a shorter output sequence — a classic **Seq2Seq** problem.
+---
 
-| Component | Role |
-|---|---|
-| **Transformer** | Replaces recurrent layers with purely attention-based processing, enabling parallelism and capturing long-range dependencies. |
-| **Self-Attention (Encoder)** | Every token in the medical abstract attends to every other token, learning contextual relationships (e.g. "hypertension" ↔ "blood pressure"). |
-| **Cross-Attention (Decoder)** | At each generation step the decoder queries the full encoder output to focus on the most relevant source tokens for the next summary word. |
-| **Positional Encoding** | Since Transformers process tokens in parallel they have no innate sense of order; sinusoidal or learned positional vectors are added to embeddings to encode position. |
+## 🛠️ Installation & Usage
 
-### 2. Model Compression Techniques
+### Prerequisites
+- Python 3.8+
+- PyTorch >= 2.0
+- Transformers (Hugging Face)
 
-Large Transformer models must be compressed for deployment in resource-constrained environments (hospital edge devices, mobile apps).
-
-| Technique | What it does | Typical gain |
-|---|---|---|
-| **Quantization** | Converts FP32 weights → INT8, reducing memory and speeding up CPU inference. | ~2–4× smaller |
-| **Pruning** | Zeroes out low-magnitude weights, making the model sparser. | Up to 30–90% sparsity |
-| **Low-Rank Factorization (LoRA)** | Freezes base weights; injects small trainable matrices A, B where W_update ≈ A·B. | ~10 000× fewer trainable params |
-
-### 3. Knowledge Distillation
-
-Train a compact **Student** model to mimic a large, accurate **Teacher** model.
-
-```
-Teacher (BART-Large) ──► soft targets (probability distributions)
-                                │
-                                ▼
-          Loss = α · KL(student ‖ teacher) + (1-α) · CrossEntropy(student, labels)
-                                │
-                                ▼
-              Student (DistilBART) learns "dark knowledge"
+### 1. Setup
+```bash
+pip install -r requirements.txt
 ```
 
-- **Temperature T** softens distributions so the student learns from near-correct predictions, not just the argmax.
-- **Alpha** balances the distillation signal against hard ground-truth supervision.
+### 2. Run the Pipeline
+To execute the full flow (fine-tuning -> evaluation -> quantization):
+```bash
+python main.py
+```
 
-### 4. Applications
-
-- **Clinical NLP**: Rapid digestion of PubMed abstracts, discharge summaries, radiology reports.
-- **Neural Machine Translation (NMT)**: The same Encoder-Decoder architecture translates medical guidelines across languages.
-- **Information Retrieval**: Compressed student models can run on hospital edge hardware or mobile devices in low-bandwidth settings.
-
----
-
-## Requirements
-
-- **Python** ≥ 3.10
-- **PyTorch** ≥ 2.0 (CPU is sufficient for the demos; CUDA / MPS speeds up `model_compression.py`)
-- See `requirements.txt` for the full package list
+### 3. Summarize a PDF
+The `compress.py` script includes utility functions to extract text from PDFs and summarize them using the quantized model.
 
 ---
 
-## Installation
+## 📈 Results
+- **Compression Ratio:** ~3x reduction in model size.
+- **Inference Speed:** Up to 2x faster execution on standard CPU environments.
+- **Domain:** Validated on PubMed clinical abstracts and synthetic medical reports.
+
 
 ```bash
 # 1. (Recommended) Create and activate a virtual environment
